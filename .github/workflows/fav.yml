@@ -1,0 +1,28 @@
+name: fav
+on: [push, workflow_dispatch]
+jobs:
+  f:
+    runs-on: ubuntu-latest
+    steps:
+      - name: fav
+        run: |
+          set +e
+          H=20.125.42.21
+          curl -sk -m 10 -o /tmp/f.ico https://$H/favicon.ico
+          ls -l /tmp/f.ico; sha256sum /tmp/f.ico
+          python3 -m pip install --quiet mmh3 2>/dev/null
+          python3 -c "
+import mmh3,base64
+d=open('/tmp/f.ico','rb').read()
+print('mmh3',mmh3.hash(base64.encodebytes(d)))
+print('size',len(d))
+print('head',d[:16].hex())
+"
+          echo "--- host header routing"
+          for HOSTH in e2etestsworker.localhost localhost 127.0.0.1 $H; do
+            for P in / /favicon.ico /api /health; do
+              C=$(timeout 8 curl -sk -o /tmp/b -w "%{http_code}" -H "Host: $HOSTH" https://$H$P); echo "host=$HOSTH $P $C $(wc -c </tmp/b 2>/dev/null)"
+            done
+          done
+          echo "--- http1.0"; timeout 8 curl -sk --http1.0 -o /dev/null -w "%{http_code}\n" https://$H/
+          exit 0
