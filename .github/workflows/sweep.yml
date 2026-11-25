@@ -1,0 +1,27 @@
+name: sweep
+on: [push, workflow_dispatch]
+jobs:
+  s:
+    runs-on: ubuntu-latest
+    steps:
+      - name: sweep
+        run: |
+          set +e
+          curl -s -m 20 -o /tmp/hosts.tsv https://raw.githubusercontent.com/dongsuju/ul-plant/main/az/hosts.tsv
+          wc -l /tmp/hosts.tsv
+          cat /tmp/hosts.tsv | head -3
+          awk '{print $2}' /tmp/hosts.tsv | sort -u > /tmp/ips.txt
+          wc -l /tmp/ips.txt
+          cat > /tmp/one.sh <<'EOS'
+          ip=$1
+          out="$ip"
+          for p in 22 80 443 6443 9400 10250 2375 8888; do
+            if timeout 3 bash -c "echo >/dev/tcp/$ip/$p" 2>/dev/null; then out="$out $p:OPEN"; fi
+          done
+          echo "$out"
+          EOS
+          chmod +x /tmp/one.sh
+          cat /tmp/ips.txt | xargs -P 24 -n 1 /tmp/one.sh | tee /tmp/res.txt
+          echo "=== OPEN LINES ==="
+          grep -c OPEN /tmp/res.txt
+          exit 0
