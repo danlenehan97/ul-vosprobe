@@ -1,0 +1,19 @@
+name: probe2
+on: [push, workflow_dispatch]
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - name: p2
+        run: |
+          set +e
+          for H in 20.97.252.251 20.125.42.21; do
+            echo "########## $H"
+            echo "--- cert"; timeout 12 openssl s_client -connect $H:443 -servername $H </dev/null 2>/dev/null | openssl x509 -noout -subject -issuer -dates 2>/dev/null
+            echo "--- head /"; timeout 12 curl -sk -D - -o /tmp/b0 https://$H/ | head -12; echo "bodybytes $(wc -c </tmp/b0)"; head -c 300 /tmp/b0; echo
+            for P in /metrics /api/version /api/session /vos/api/version /vos/ui/ /login /api/system /api/nodes /api/streams /healthz /health /api /swagger/index.html /api/v1/session /rest/api/version; do
+              timeout 10 curl -sk -o /tmp/b -w "$P %{http_code} %{size_download}\n" https://$H$P
+              if [ -s /tmp/b ]; then head -c 200 /tmp/b; echo; fi
+            done
+          done
+          exit 0
