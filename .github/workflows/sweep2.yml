@@ -1,0 +1,27 @@
+name: sweep2
+on: [push, workflow_dispatch]
+jobs:
+  s:
+    runs-on: ubuntu-latest
+    steps:
+      - name: s2
+        run: |
+          set +e
+          curl -s -m 20 -o /tmp/h.tsv https://raw.githubusercontent.com/dongsuju/ul-plant/main/az/hosts.tsv
+          awk '{print $2}' /tmp/h.tsv | sort -u > /tmp/ips.txt
+          cat > /tmp/one.sh <<'EOS'
+          ip=$1
+          out=""
+          for p in 443 22 8080 8443 8000 9090 3000 5432 9300 21 25 3389; do
+            timeout 6 bash -c "echo >/dev/tcp/$ip/$p" 2>/dev/null && out="$out $p"
+          done
+          [ -n "$out" ] && echo "$ip$out"
+          EOS
+          chmod +x /tmp/one.sh
+          cat /tmp/ips.txt | xargs -P 20 -n 1 /tmp/one.sh
+          echo "=== deep 20.97.252.251"
+          timeout 10 bash -c 'exec 3<>/dev/tcp/20.97.252.251/443; head -c 80 <&3' | xxd | head -3
+          timeout 45 curl -sk -m 40 -o /tmp/x -w "long443 %{http_code} %{size_download}\n" https://20.97.252.251/
+          timeout 10 openssl s_client -connect 20.97.252.251:443 -servername x </dev/null 2>&1 | head -6
+          echo DONE
+          exit 0
