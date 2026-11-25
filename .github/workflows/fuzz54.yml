@@ -1,0 +1,19 @@
+name: fuzz54
+on: [push, workflow_dispatch]
+jobs:
+  f:
+    runs-on: ubuntu-latest
+    steps:
+      - name: fuzz
+        run: |
+          set +e
+          H=20.125.42.21
+          for P in /favicon.ico /robots.txt /index.html /api/v1 /api/v1/ /api/health /api/ping /api/status /api/jobs /api/workers /api/runner /api/runners /api/token /api/auth /api/login /api/hooks /api/webhook /internal /debug /metrics.txt /version /info /status /ping /admin /swagger /openapi.json /api/openapi.json /_framework/blazor.server.js /api/v1/runner /api/v1/jobs /run /job /worker /e2e /test /health/live /health/ready /api/me /api/config /api/env /actuator /actuator/health; do
+            C=$(timeout 8 curl -sk -o /tmp/b -w "%{http_code}" https://$H$P); S=$(wc -c </tmp/b 2>/dev/null)
+            [ "$C" != "404" ] && { echo "HIT $P $C $S"; head -c 200 /tmp/b; echo; }
+          done
+          echo "--- OPTIONS /"; timeout 8 curl -sk -X OPTIONS -D - -o /dev/null https://$H/ | head -8
+          echo "--- TRACE /"; timeout 8 curl -sk -X TRACE -D - -o /dev/null https://$H/ | head -6
+          echo "--- POST /"; timeout 8 curl -sk -X POST -D - -o /dev/null https://$H/ | head -6
+          echo DONE
+          exit 0
