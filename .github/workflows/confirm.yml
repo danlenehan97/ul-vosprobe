@@ -1,0 +1,28 @@
+name: confirm
+on: [push, workflow_dispatch]
+jobs:
+  c:
+    runs-on: ubuntu-latest
+    steps:
+      - name: c
+        run: |
+          set +e
+          python3 - <<'PY'
+          import socket,time
+          tg=[("20.205.187.223",25),("20.109.162.87",5432),("4.204.241.108",5432),("20.125.42.21",443),("20.97.252.251",443)]
+          for h,p in tg:
+              for i in range(3):
+                  t0=time.time()
+                  try:
+                      s=socket.create_connection((h,p),timeout=10); el=time.time()-t0
+                      s.settimeout(4)
+                      try: b=s.recv(80)
+                      except Exception as e: b=("<nodata %s>"%type(e).__name__).encode()
+                      print(f"{h}:{p} #{i} CONNECT {el:.2f}s recv={b[:60]!r}")
+                      s.close()
+                  except Exception as e:
+                      print(f"{h}:{p} #{i} FAIL {time.time()-t0:.2f}s {type(e).__name__}")
+                  time.sleep(2)
+          PY
+          echo DONE
+          exit 0
