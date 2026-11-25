@@ -1,0 +1,15 @@
+name: probe
+on: [push, workflow_dispatch]
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - name: probe
+        run: |
+          echo "=== egress ==="; curl -s -m 10 https://ifconfig.me || true; echo
+          echo "=== MET ==="; curl -sk -m 25 -o /tmp/m -w 'MET=%{http_code}:%{size_download}\n' https://20.109.152.114/metrics || true; head -c 300 /tmp/m; echo
+          echo "=== ROOT ==="; curl -sk -m 25 -o /tmp/r -w 'ROOT=%{http_code}:%{size_download}\n' https://20.109.152.114/ || true; head -c 500 /tmp/r; echo
+          echo "=== VER ==="; curl -sk -m 25 -o /tmp/v -w 'VER=%{http_code}:%{size_download}\n' https://20.109.152.114/api/version || true; head -c 200 /tmp/v; echo
+          echo "=== SESS ==="; curl -sk -m 25 -o /tmp/s -w 'SESS=%{http_code}:%{size_download}\n' -X POST -H 'Content-Type: application/json' -d '{"username":"admin","password":"admin"}' https://20.109.152.114/api/session || true; head -c 300 /tmp/s; echo
+          echo "=== SSH ==="; (timeout 8 bash -c 'exec 3<>/dev/tcp/20.109.152.114/22; head -c 60 <&3') || true; echo
+          echo "=== SIB ==="; for h in 20.125.42.21 20.240.55.118 20.205.187.223; do curl -sk -m 8 -o /dev/null -w "$h %{http_code}\n" https://$h/ || true; done
